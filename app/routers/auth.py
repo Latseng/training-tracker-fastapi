@@ -36,8 +36,16 @@ def signup(payload: SignupRequest):
 
         if res.user is None:
             raise HTTPException(status_code=400, detail="註冊失敗，Email 可能已被使用")
+        
+        # 若帳號註冊成功則建立一筆使用者資料，並回傳給前端
+        auth_user_id = res.user.id  
+        supabase.table("users").insert({
+        "id": auth_user_id,  # 關鍵：用同樣的 id
+        "email": payload.email,
+        "username": payload.username
+        }).execute()
 
-        return {"message": "註冊成功", "user": res.user}
+        return {"message": "註冊成功", "user_id": auth_user_id}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -49,7 +57,7 @@ async def login(user: LoginRequest):
             "email": user.email,
             "password": user.password,
         })
-
+        print(response)
         # 取出 token 與使用者資訊
         return {
             "access_token": response.session.access_token,
@@ -59,4 +67,4 @@ async def login(user: LoginRequest):
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Invalid credentials")
+        raise HTTPException(status_code=500, detail=str(e))
