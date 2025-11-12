@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.database import database
 from typing import List
@@ -11,26 +11,36 @@ supabase = database.get_supabase()
 oauth2_scheme = HTTPBearer()
 
 # 使用者驗證
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme)):
-    """
-    這個函數會：
-    1. 自動從 Authorization header 取得 Token
-    2. 驗證 Token 的有效性
-    3. 從 Token 或資料庫取得使用者資料
-    4. 回傳使用者資料
+# async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme)):
+async def get_current_user(request: Request):
+    """從 Cookie 取得當前使用者"""
+    # """
+    # 這個函數會：
+    # 1. 自動從 Authorization header 取得 Token
+    # 2. 驗證 Token 的有效性
+    # 3. 從 Token 或資料庫取得使用者資料
+    # 4. 回傳使用者資料
     
-    參數說明：
-    - credentials: HTTPAuthorizationCredentials
-      - credentials.scheme: "Bearer"
-      - credentials.credentials: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-    """
-    token = credentials.credentials
+    # 參數說明：
+    # - credentials: HTTPAuthorizationCredentials
+    #   - credentials.scheme: "Bearer"
+    #   - credentials.credentials: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    # """
+    # token = credentials.credentials
+    access_token = request.cookies.get("access_token")
+    
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
     
     try:
-        response = supabase.auth.get_user(token)
+        response = supabase.auth.get_user(access_token)
         print("使用者資料", response)
         if not response.user:
-            raise HTTPException(401, "Invalid token")
+            raise HTTPException(401, "Invalid or expired token")
+        
         # 回傳使用者資料
         return {
             "id": response.user.id,

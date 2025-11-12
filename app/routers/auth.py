@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Response
 from pydantic import BaseModel, EmailStr
 from app.database import database
 from supabase import AuthApiError
@@ -17,15 +17,15 @@ class LoginRequest(BaseModel):
     password: str
 
 @router.post("/signup")
-def signup(payload: SignupRequest):
+def signup(request: SignupRequest):
     """使用者註冊 - 使用 Supabase Auth"""
     try:
         # 呼叫 Supabase Auth API
         response = supabase.auth.sign_up({
-            "email": payload.email,
-            "password": payload.password,
+            "email": request.email,
+            "password": request.password,
             "options": {
-                "data": {"username": payload.username}
+                "data": {"username": request.username}
             }
         })
 
@@ -36,11 +36,12 @@ def signup(payload: SignupRequest):
             )
         
         # 若帳號註冊成功則建立一筆使用者資料，並回傳給前端
-        auth_user_id = response.user.id  
+        auth_user_id = response.user.id 
+
         supabase.table("users").insert({
         "id": auth_user_id,  # 關鍵：用同樣的 id
-        "email": payload.email,
-        "username": payload.username
+        "email": request.email,
+        "username": request.username
         }).execute()
 
         return {"message": "註冊成功", "user_id": auth_user_id}
@@ -63,30 +64,31 @@ def signup(payload: SignupRequest):
         )
 
 @router.post("/login")
-async def login(payload: LoginRequest):
+async def login(request: LoginRequest, response: Response):
     """使用者登入 - 使用 Supabase Auth"""
     try:
         # 使用 Supabase 進行身份驗證
-        response = supabase.auth.sign_in_with_password({
-            "email": payload.email,
-            "password": payload.password
+        supabase_response = supabase.auth.sign_in_with_password({
+            "email": request.email,
+            "password": request.password
         })
         
         # 檢查是否登入成功
-        if not response.user or not response.session:
+        if not supabase_response.user or not supabase_response.session:
             raise HTTPException(
                 status_code=401,
                 detail="登入失敗：電子郵件或密碼錯誤"
             )
         
+        # 設定HttpOnly Cookies
+        response.set_cookie("access_token", supabase_response.session.access_token, httponly=True, secure=False, samesite="lax", max_age=60*60)
+        response.set_cookie("refresh_token", supabase_response.session.refresh_token, httponly=True, secure=False, samesite="lax", max_age=60*60*24*30)
+
         # 回傳登入資訊
         return {
-            "access_token": response.session.access_token,
-            "refresh_token": response.session.refresh_token,
+            "message": "login ok",
             "user": {
-                "id": response.user.id,
-                # "email": response.user.email,
-                "username": response.user.user_metadata.get("username")
+                "id": supabase_response.user.id,
             }
         }
         
@@ -100,3 +102,9 @@ async def login(payload: LoginRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Login failed: {str(e)}"
         )
+    
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie("access_token")
+    response.delete_cookie("refresh_token")
+    return {"message": "Logout successful"}
