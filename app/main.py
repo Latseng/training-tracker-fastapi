@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.routers import auth
+from app.routers import training_sessions
 # from app.core.supabase_client import supabase
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -14,6 +15,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(training_sessions.router)
 
 @app.get("/")
 def root():
