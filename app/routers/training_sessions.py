@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, status
 from app.database import database
+from app.dependencies.auth import get_current_user
 from typing import List
 from app.models import (
     TrainingSessionCreate,
@@ -8,48 +8,6 @@ from app.models import (
 )
 
 supabase = database.get_supabase()
-oauth2_scheme = HTTPBearer()
-
-# 使用者驗證
-# async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme)):
-async def get_current_user(request: Request):
-    """從 Cookie 取得當前使用者"""
-    # """
-    # 這個函數會：
-    # 1. 自動從 Authorization header 取得 Token
-    # 2. 驗證 Token 的有效性
-    # 3. 從 Token 或資料庫取得使用者資料
-    # 4. 回傳使用者資料
-    
-    # 參數說明：
-    # - credentials: HTTPAuthorizationCredentials
-    #   - credentials.scheme: "Bearer"
-    #   - credentials.credentials: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-    # """
-    # token = credentials.credentials
-    access_token = request.cookies.get("access_token")
-    
-    if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
-    
-    try:
-        response = supabase.auth.get_user(access_token)
-        print("使用者資料", response)
-        if not response.user:
-            raise HTTPException(401, "Invalid or expired token")
-        
-        # 回傳使用者資料
-        return {
-            "id": response.user.id,
-            "email": response.user.email,
-            "username": response.user.user_metadata.get("username")
-        }
-    except Exception:
-        raise HTTPException(401, "Invalid or expired token")
-
 
 router = APIRouter(
     prefix="/training-sessions",
@@ -103,13 +61,13 @@ async def get_training_sessions(
     """
     取得當前使用者的所有訓練課程
     
-    回傳按日期降冪排序的課程列表
+    回傳按資料建立時間降冪排序的課程列表
     """
     try:
         response = supabase.table("training_sessions")\
             .select("*")\
             .eq("user_id", current_user["id"])\
-            .order("date", desc=True)\
+            .order("created_at", desc=True)\
             .execute()
         
         return response.data if response.data else []
@@ -118,4 +76,33 @@ async def get_training_sessions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch training sessions: {str(e)}"
+        )
+    
+@router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_training_session(
+    session_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """刪除訓練課程"""
+    try:
+        response = supabase.table("training_sessions")\
+            .delete()\
+            .eq("id", session_id)\
+            .eq("user_id", current_user["id"])\
+            .execute()
+        # 檢查是否成功刪除（data為空表示沒有匹配到可刪除的行，可能是資料ID不存在或User ID不匹配）
+        if not response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Training session not found or you don't have permission to delete it."
+            )
+        
+        return
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete training session: {str(e)}"
         )
