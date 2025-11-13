@@ -4,13 +4,14 @@ from app.dependencies.auth import get_current_user
 from typing import List
 from app.models import (
     TrainingSessionCreate,
+    TrainingSessionUpdate,
     TrainingSessionResponse
 )
 
 supabase = database.get_supabase()
 
 router = APIRouter(
-    prefix="/training-sessions",
+    prefix="/api/training-sessions",
     tags=["training sessions"]
 )
 
@@ -76,6 +77,93 @@ async def get_training_sessions(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch training sessions: {str(e)}"
+        )
+    
+# @router.get("/{session_id}", response_model=TrainingSessionResponse)
+# async def get_training_session(
+#     session_id: str,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """取得特定訓練課程的詳細資訊"""
+#     try:
+#         response = supabase.table("training_sessions")\
+#             .select("*")\
+#             .eq("id", session_id)\
+#             .eq("user_id", current_user["id"])\
+#             .execute()
+        
+#         if not response.data:
+#             raise HTTPException(
+#                 status_code=status.HTTP_404_NOT_FOUND,
+#                 detail="Training session not found"
+#             )
+        
+#         return response.data[0]
+    
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"Failed to fetch training session: {str(e)}"
+#         )
+
+@router.put("/{session_id}", response_model=TrainingSessionResponse)
+async def update_training_session(
+    session_id: str,
+    session_update: TrainingSessionUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """更新選定課程（id）資訊"""
+    try:
+        # 確認該課程存在且屬於當前使用者
+        existing = supabase.table("training_sessions")\
+            .select("*")\
+            .eq("id", session_id)\
+            .eq("user_id", current_user["id"])\
+            .execute()
+        
+        if not existing.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Training session not found"
+            )
+        
+        # 準備更新資料（只更新有提供的欄位）
+        update_data = {}
+        if session_update.title is not None:
+            update_data["title"] = session_update.title
+        if session_update.date is not None:
+            update_data["date"] = session_update.date.isoformat()
+        if session_update.note is not None:
+            update_data["note"] = session_update.note
+        
+        if not update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No fields to update"
+            )
+        
+        # 執行更新
+        response = supabase.table("training_sessions")\
+            .update(update_data)\
+            .eq("id", session_id)\
+            .execute()
+        
+        if not response.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update training session"
+            )
+        
+        return response.data[0]
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update training session: {str(e)}"
         )
     
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)

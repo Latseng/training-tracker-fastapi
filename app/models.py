@@ -18,6 +18,12 @@ class TrainingSessionCreate(BaseModel):
             }
         }
 
+class TrainingSessionUpdate(BaseModel):
+    """更新訓練課程的請求模型"""
+    title: Optional[str] = Field(None, max_length=100)
+    date: Optional[DateType] = None 
+    note: Optional[str] = None
+
 class TrainingSessionResponse(BaseModel):
     """訓練課程的回應模型"""
     id: str
