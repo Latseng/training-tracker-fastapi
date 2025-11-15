@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date
 from app.database import database
 from app.dependencies.auth import get_current_user
 from typing import List
@@ -57,6 +58,8 @@ async def create_training_session(
 
 @router.get("", response_model=List[TrainingSessionResponse])
 async def get_training_sessions(
+    start_date: date | None = None,
+    end_date: date | None = None,
     current_user: dict = Depends(get_current_user)
 ):
     """
@@ -65,11 +68,23 @@ async def get_training_sessions(
     回傳按資料建立時間降冪排序的課程列表
     """
     try:
-        response = supabase.table("training_sessions")\
+        print(start_date, end_date)
+         # 初始化基礎查詢
+        query = supabase.table("training_sessions")\
             .select("*")\
-            .eq("user_id", current_user["id"])\
-            .order("created_at", desc=True)\
-            .execute()
+            .eq("user_id", current_user["id"])
+            
+        # 選擇性地加入日期過濾條件
+        if start_date:
+            query = query.gte("date", start_date.isoformat())
+            
+        if end_date:
+            # PostgreSQL/Supabase 查詢：date 小於等於 end_date (lte)
+            query = query.lte("date", end_date.isoformat())
+        else:
+            query = query.lte("date", start_date.isoformat())
+        # 執行排序和查詢
+        response = query.order("created_at", desc=True).execute()
         
         return response.data if response.data else []
     
