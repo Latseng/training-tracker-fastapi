@@ -7,7 +7,6 @@ supabase = database.get_supabase()
 async def get_current_user(request: Request):
     """從 Cookie 取得使用者驗證資訊"""
     access_token = request.cookies.get("access_token")
-    print("有取得Token",access_token)
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -16,7 +15,6 @@ async def get_current_user(request: Request):
     
     try:
         response = supabase.auth.get_user(access_token)
-        print("使用者資料", response)
         if not response.user:
             raise HTTPException(401, "Invalid or expired token")
         
