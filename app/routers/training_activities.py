@@ -108,3 +108,43 @@ async def create_activity_with_records(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create activity: {str(e)}"
         )
+    
+@router.delete("/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_training_session(
+    activity_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """刪除訓練項目。由於設定了 ON DELETE CASCADE，相關的 records 會自動刪除"""
+    try:
+        # 驗證 activity 存在且屬於當前使用者的 session
+        activity_response = supabase.table("training_activities")\
+            .select("*, training_sessions!inner(user_id)")\
+            .eq("id", activity_id)\
+            .execute()
+        
+        if not activity_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Training activity not found"
+            )
+        
+        # 檢查是否屬於當前使用者
+        if activity_response.data[0]["training_sessions"]["user_id"] != current_user["id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to delete this activity"
+            )
+        
+        # 刪除活動（records 會自動刪除）
+        supabase.table("training_activities").delete().eq("id", activity_id).execute()
+        
+        return None
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error deleting activity: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete activity: {str(e)}"
+        )

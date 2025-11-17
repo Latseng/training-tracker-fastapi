@@ -6,7 +6,8 @@ from typing import List
 from app.models import (
     TrainingSessionCreate,
     TrainingSessionUpdate,
-    TrainingSessionResponse
+    TrainingSessionResponse,
+    TrainingSessionWithActivitiesResponse
 )
 
 supabase = database.get_supabase()
@@ -56,25 +57,69 @@ async def create_training_session(
             detail=f"Database error: {str(e)}"
         )
 
-@router.get("", response_model=List[TrainingSessionResponse])
-async def get_training_sessions(
-    start_date: date | None = None,
+# @router.get("", response_model=List[TrainingSessionResponse])
+# async def get_training_sessions(
+#     start_date: date | None = None,
+#     end_date: date | None = None,
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     """
+#     取得當前使用者的所有訓練課程
+    
+#     回傳按資料建立時間降冪排序的課程列表
+#     """
+#     try:
+#          # 初始化基礎查詢
+#         query = supabase.table("training_sessions")\
+#             .select("*")\
+#             .eq("user_id", current_user["id"])
+            
+#         # 選擇性地加入日期過濾條件
+#         if start_date:
+#             query = query.gte("date", start_date.isoformat())
+            
+#         if end_date:
+#             # PostgreSQL/Supabase 查詢：date 小於等於 end_date (lte)
+#             query = query.lte("date", end_date.isoformat())
+#         else:
+#             query = query.lte("date", start_date.isoformat())
+#         # 執行排序和查詢
+#         response = query.order("created_at", desc=True).execute()
+        
+#         return response.data if response.data else []
+    
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail=f"Failed to fetch training sessions: {str(e)}"
+
+@router.get("/with-activities", response_model=List[TrainingSessionWithActivitiesResponse])
+async def get_training_sessions_with_activities(
+     start_date: date | None = None,
     end_date: date | None = None,
     current_user: dict = Depends(get_current_user)
 ):
     """
-    取得當前使用者的所有訓練課程
+    取得訓練課程（包含活動和記錄）
     
-    回傳按資料建立時間降冪排序的課程列表
+    這個端點會一次返回完整的巢狀資料結構，包含：
+    - Training Sessions
+    - Training Activities
+    - Activity Records
+    
+    查詢參數：
+    - date: 查詢特定日期的課程（例如：2024-01-15）
+    - 若無參數：回傳所有課程
+    
+    範例：
+    GET /training-sessions/with-activities?date=2024-01-15
     """
     try:
-        print(start_date, end_date)
-         # 初始化基礎查詢
+        # 1. 查詢 training_sessions
         query = supabase.table("training_sessions")\
             .select("*")\
             .eq("user_id", current_user["id"])
-            
-        # 選擇性地加入日期過濾條件
+        
         if start_date:
             query = query.gte("date", start_date.isoformat())
             
@@ -84,14 +129,60 @@ async def get_training_sessions(
         else:
             query = query.lte("date", start_date.isoformat())
         # 執行排序和查詢
-        response = query.order("created_at", desc=True).execute()
         
-        return response.data if response.data else []
+        query = query.order("created_at", desc=True)
+        sessions_response = query.execute()
+   
+        if not sessions_response.data:
+            return []
+        
+        # 2. 為每個 session 查詢其 activities 和 records
+        result = []
+        for session in sessions_response.data:
+            # 查詢該 session 的所有 activities
+            activities_response = supabase.table("training_activities")\
+                .select("*")\
+                .eq("session_id", session["id"])\
+                .execute()
+            
+            activities_with_records = []
+            if activities_response.data:
+                # 為每個 activity 查詢其 records
+                for activity in activities_response.data:
+                    records_response = supabase.table("activity_records")\
+                        .select("*")\
+                        .eq("activity_id", activity["id"])\
+                        .order("set_number")\
+                        .execute()
+                    
+                    activities_with_records.append({
+                        "id": activity["id"],
+                        "session_id": activity["session_id"],
+                        "name": activity["name"],
+                        "category": activity["category"],
+                        "description": activity["description"],
+                        "activity_records": records_response.data if records_response.data else []
+                    })
+                    # 組合完整資料
+            result.append({
+                "id": session["id"],
+                "user_id": session["user_id"],
+                "title": session["title"],
+                "date": session["date"],
+                "note": session["note"],
+                "created_at": session["created_at"],
+                "activities": activities_with_records
+            })
+        
+        return result
     
     except Exception as e:
+        print(f"Error fetching sessions with activities: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch training sessions: {str(e)}"
+            detail=f"Failed to fetch sessions with activities: {str(e)}"
         )
     
 # @router.get("/{session_id}", response_model=TrainingSessionResponse)

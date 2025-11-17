@@ -30,7 +30,7 @@ class TrainingSessionResponse(BaseModel):
     id: str
     user_id: str
     title: Optional[str]
-    date: str  # 注意：資料庫欄位是 date，所以 response 保持不變
+    date: str
     note: Optional[str]
     created_at: str
     
@@ -110,3 +110,13 @@ class TrainingActivityWithRecordsResponse(BaseModel):
     category: Optional[str]
     description: Optional[str]
     activity_records: list[ActivityRecordResponse]
+
+class TrainingSessionWithActivitiesResponse(BaseModel):
+    """訓練計劃包含訓練項目與訓練紀錄"""
+    id: str
+    user_id: str
+    title: Optional[str]
+    date: str
+    note: Optional[str]
+    activities: list[TrainingActivityWithRecordsResponse]
+    created_at: str
