@@ -109,7 +109,7 @@ class TrainingActivityWithRecordsResponse(BaseModel):
     name: str
     category: Optional[str]
     description: Optional[str]
-    activity_records: list[ActivityRecordResponse]
+    records: list[ActivityRecordResponse]
 
 class TrainingSessionWithActivitiesResponse(BaseModel):
     """訓練計劃包含訓練項目與訓練紀錄"""

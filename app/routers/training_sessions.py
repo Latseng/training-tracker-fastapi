@@ -93,88 +93,41 @@ async def create_training_session(
 #             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
 #             detail=f"Failed to fetch training sessions: {str(e)}"
 
+
 @router.get("/with-activities", response_model=List[TrainingSessionWithActivitiesResponse])
 async def get_training_sessions_with_activities(
-     start_date: date | None = None,
+    start_date: date | None = None,
     end_date: date | None = None,
     current_user: dict = Depends(get_current_user)
 ):
     """
-    取得訓練課程（包含活動和記錄）
-    
-    這個端點會一次返回完整的巢狀資料結構，包含：
-    - Training Sessions
-    - Training Activities
-    - Activity Records
-    
-    查詢參數：
-    - date: 查詢特定日期的課程（例如：2024-01-15）
-    - 若無參數：回傳所有課程
-    
-    範例：
-    GET /training-sessions/with-activities?date=2024-01-15
+    取得訓練課程（包含活動和記錄）- **單次查詢優化**
     """
     try:
-        # 1. 查詢 training_sessions
+        # 建立單次巢狀查詢
+        # select("*, activities:training_activities(*, records:activity_records(*))")
         query = supabase.table("training_sessions")\
-            .select("*")\
+            .select("*, activities:training_activities(*, records:activity_records(*))")\
             .eq("user_id", current_user["id"])
         
+        # 處理日期過濾
         if start_date:
             query = query.gte("date", start_date.isoformat())
             
         if end_date:
-            # PostgreSQL/Supabase 查詢：date 小於等於 end_date (lte)
             query = query.lte("date", end_date.isoformat())
-        else:
-            query = query.lte("date", start_date.isoformat())
-        # 執行排序和查詢
-        
+        elif start_date:
+            # 如果只有 start_date，查詢當天或之後的課程
+            query = query.lte("date", start_date.isoformat()) 
+            
+        # 執行查詢
         query = query.order("created_at", desc=True)
         sessions_response = query.execute()
    
         if not sessions_response.data:
             return []
-        
-        # 2. 為每個 session 查詢其 activities 和 records
-        result = []
-        for session in sessions_response.data:
-            # 查詢該 session 的所有 activities
-            activities_response = supabase.table("training_activities")\
-                .select("*")\
-                .eq("session_id", session["id"])\
-                .execute()
-            
-            activities_with_records = []
-            if activities_response.data:
-                # 為每個 activity 查詢其 records
-                for activity in activities_response.data:
-                    records_response = supabase.table("activity_records")\
-                        .select("*")\
-                        .eq("activity_id", activity["id"])\
-                        .order("set_number")\
-                        .execute()
-                    
-                    activities_with_records.append({
-                        "id": activity["id"],
-                        "session_id": activity["session_id"],
-                        "name": activity["name"],
-                        "category": activity["category"],
-                        "description": activity["description"],
-                        "activity_records": records_response.data if records_response.data else []
-                    })
-                    # 組合完整資料
-            result.append({
-                "id": session["id"],
-                "user_id": session["user_id"],
-                "title": session["title"],
-                "date": session["date"],
-                "note": session["note"],
-                "created_at": session["created_at"],
-                "activities": activities_with_records
-            })
-        
-        return result
+
+        return sessions_response.data
     
     except Exception as e:
         print(f"Error fetching sessions with activities: {e}")
@@ -184,7 +137,6 @@ async def get_training_sessions_with_activities(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch sessions with activities: {str(e)}"
         )
-    
 # @router.get("/{session_id}", response_model=TrainingSessionResponse)
 # async def get_training_session(
 #     session_id: str,
