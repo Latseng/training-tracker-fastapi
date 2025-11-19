@@ -8,4 +8,5 @@ dependencies = [
     "fastapi[standard]>=0.121.0",
     "python-dotenv>=1.2.1",
     "supabase>=2.23.2",
+    "pydantic-settings>=2.0.0",
 ]
