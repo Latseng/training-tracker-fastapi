@@ -137,6 +137,7 @@ async def get_training_sessions_with_activities(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch sessions with activities: {str(e)}"
         )
+
 # @router.get("/{session_id}", response_model=TrainingSessionResponse)
 # async def get_training_session(
 #     session_id: str,

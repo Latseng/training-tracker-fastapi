@@ -1,11 +1,14 @@
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from app.models import (
     TrainingActivityWithRecordsCreate,
     TrainingActivityWithRecordsResponse,
+    ActivityRecordUpdate
 )
 from app.dependencies.auth import get_current_user
 from app.database import database
+from typing import List
+from decimal import Decimal
 
 router = APIRouter(
     prefix="/api/training-activities",
@@ -99,7 +102,7 @@ async def create_activity_with_records(
             "name": created_activity["name"],
             "category": created_activity["category"],
             "description": created_activity["description"],
-            "activity_records": created_records
+            "records": created_records
         }
     
     except Exception as e:
@@ -108,7 +111,82 @@ async def create_activity_with_records(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create activity: {str(e)}"
         )
+
+@router.put("/{activity_id}/records", status_code=status.HTTP_204_NO_CONTENT)
+async def update_activity_records(
+    activity_id: str,
+    records_to_process: List[ActivityRecordUpdate], 
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    批量更新特定 Activity 底下的所有（Records），
+    同時處理被刪除的記錄 (執行集合替換邏輯)。
+    注意：本路由操作目前並未有事務更新機制，若部分失敗無回滾機制
+    """
     
+    # 1. 數據驗證與準備
+    if not records_to_process:
+        # 如果前端傳來空列表，意味著要刪除該 activity 下所有 records
+        ids_to_keep = []
+    else:
+        # 提取所有需要保留 (更新/插入) 的 Record ID 集合
+        ids_to_keep = [record.id for record in records_to_process if record.id]
+        
+        # 確保所有傳入的 records 都屬於這個 activity_id
+        for record in records_to_process:
+            if record.activity_id != activity_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Record ID {record.id} belongs to a different activity."
+                )
+    try:
+        # 刪除不再存在的 Records ---
+        if ids_to_keep:
+            # 刪除所有屬於該 activity，但其 ID 不在 ids_to_keep 列表中的記錄
+            supabase.table("activity_records")\
+                .delete()\
+                .eq("activity_id", activity_id)\
+                .not_.in_("id", ids_to_keep)\
+                .execute()
+        else:
+            # 如果 ids_to_keep 為空，則刪除該 activity 下所有記錄
+            supabase.table("activity_records")\
+                .delete()\
+                .eq("activity_id", activity_id)\
+                .execute()
+            
+        # 更新/插入現有及新增的 Records ---
+        updates = []
+        for record in records_to_process:
+            record_dict = record.model_dump(exclude_none=True, by_alias=False)
+            
+            # **關鍵修復：手動將 Decimal 轉換為 float**
+            # 遍歷字典並轉換 Decimal 物件
+            cleaned_dict = {}
+            for key, value in record_dict.items():
+                if isinstance(value, Decimal):
+                    # 將 Decimal 轉換為 float
+                    cleaned_dict[key] = float(value) 
+                else:
+                    cleaned_dict[key] = value
+            
+            updates.append(cleaned_dict)
+
+        if updates:
+            # 執行 upsert
+            # 必須依賴 activity_records 表中的 primary key (id) 來判斷是更新還是插入
+            upsert_response = supabase.table("activity_records").upsert(updates)\
+                .execute()
+        
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    except Exception as e:
+        print(f"Error during set replacement for activity {activity_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update activity records: {str(e)}"
+        )
+
 @router.delete("/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_training_session(
     activity_id: str,

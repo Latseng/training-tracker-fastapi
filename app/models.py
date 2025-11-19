@@ -120,3 +120,17 @@ class TrainingSessionWithActivitiesResponse(BaseModel):
     note: Optional[str]
     activities: list[TrainingActivityWithRecordsResponse]
     created_at: str
+
+class ActivityRecordUpdate(BaseModel):
+    """
+    用於接收前端單筆 Record 更新的 Pydantic 模型。
+    - id 欄位是必須的，用於定位要更新的 Record。
+    """
+    id: str  # 必須提供 Record 的 ID
+    activity_id: str  # 必須提供所屬 Activity 的 ID
+    set_number: int
+    repetition: Optional[int]
+    weight: Optional[Decimal] = Field(None, ge=0, max_digits=5, decimal_places=2, description="重量(kg)")
+    duration: Optional[str] = Field(None, description="持續時間 (例如: '00:30:00')")
+    distance: Optional[Decimal] = Field(None, ge=0, max_digits=6, decimal_places=1, description="距離(km)")
+    score: Optional[Decimal] = Field(None, ge=0, max_digits=4, decimal_places=1, description="分數")
