@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, status, Response
+from fastapi import APIRouter, HTTPException, status, Response, Depends
 from pydantic import BaseModel, EmailStr
 from app.database import database
 from supabase import AuthApiError
+from app.dependencies.auth import get_current_user
 
-router = APIRouter(tags=["auth"])
+router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 supabase = database.get_supabase()
 
@@ -102,6 +103,14 @@ async def login(request: LoginRequest, response: Response):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Login failed: {str(e)}"
         )
+    
+@router.get("/users/me")
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    """
+    前端用來確認使用者是否登入，並獲取使用者資料的接口。
+    如果 cookie 無效，get_current_user 會直接拋出 401 錯誤。
+    """
+    return current_user
     
 @router.post("/logout")
 async def logout(response: Response):

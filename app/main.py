@@ -1,12 +1,25 @@
 from fastapi import FastAPI
 from app.routers import auth, training_sessions, training_activities
 from fastapi.middleware.cors import CORSMiddleware
+from .config import settings
+
+if settings.ENVIRONMENT == "Production":
+    ALLOWED_ORIGINS = [settings.FRONTEND_URL]
+    
+elif settings.ENVIRONMENT == "Development":
+    ALLOWED_ORIGINS = [
+        settings.FRONTEND_URL, 
+        "http://localhost", 
+        "http://localhost:8000",
+        "http://127.0.0.1",
+        "http://127.0.0.1:8000",
+    ]
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -19,21 +32,3 @@ app.include_router(training_activities.router)
 @app.get("/")
 def root():
     return "Hello FastAPI!"
-
-# @app.get("/test-connection")
-# def test_connection():
-#     try:
-#         response = supabase.table("training").select("*").limit(1).execute()
-#         return {
-#             "status": "success",
-#             "row_count": len(response.data),
-#             "sample": response.data
-#         }
-#     except Exception as e:
-#         return {
-#             "status": "error",
-#             "detail": str(e)
-#         }
-
-if __name__ == "__main__":
-    root()

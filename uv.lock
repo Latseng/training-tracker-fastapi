@@ -990,7 +990,7 @@ wheels = [
 ]
 
 [[package]]
-name = "training-fastapi"
+name = "training-tracker-fastapi"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

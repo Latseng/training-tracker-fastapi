@@ -3,7 +3,7 @@ from app.database import database
 
 supabase = database.get_supabase()
 
-# 操作前身份驗證
+# 請求身份驗證
 async def get_current_user(request: Request):
     """從 Cookie 取得使用者驗證資訊"""
     access_token = request.cookies.get("access_token")
