@@ -1,7 +1,19 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 from datetime import date as DateType
 from decimal import Decimal
+
+class SignupRequest(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class EmailSchema(BaseModel):
+    email: EmailStr
 
 # ===== Training Session 相關模型 =====
 class TrainingSessionCreate(BaseModel):

@@ -1,27 +1,22 @@
-from fastapi import APIRouter, HTTPException, status, Response, Depends
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, HTTPException, status, Request, Response, Depends
+from app.models import (
+    SignupRequest,
+    LoginRequest,
+    EmailSchema
+)
 from app.database import database
 from supabase import AuthApiError
 from app.dependencies.auth import get_current_user
+from app.dependencies.limiter import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 supabase = database.get_supabase()
 
-class SignupRequest(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
 @router.post("/signup")
 def signup(request: SignupRequest):
     """使用者註冊 - 使用 Supabase Auth"""
     try:
-        # 呼叫 Supabase Auth API
         response = supabase.auth.sign_up({
             "email": request.email,
             "password": request.password,
@@ -36,7 +31,6 @@ def signup(request: SignupRequest):
                 detail="使用者註冊失敗"
             )
         
-        # 若帳號註冊成功則建立一筆使用者資料，並回傳給前端
         auth_user_id = response.user.id 
 
         supabase.table("users").insert({
@@ -45,7 +39,7 @@ def signup(request: SignupRequest):
         "username": request.username
         }).execute()
 
-        return {"message": "註冊成功", "user_id": auth_user_id}
+        return {"message": "註冊成功", "user_id": auth_user_id, "email":response.user.email}
 
     except AuthApiError as e:
         error_msg = str(e).lower()
@@ -62,6 +56,34 @@ def signup(request: SignupRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Registration failed: {str(e)}"
+        )
+
+@router.post("/resend-verify")
+@limiter.limit("3/minute")
+async def resend_verify(request: Request, body: EmailSchema):
+    """
+    重新寄發註冊驗證信
+    """
+    try:
+        supabase.auth.resend(
+            {
+                "type": "signup",
+                "email": body.email
+            }
+        )
+        return {"message": "驗證信已重新寄送，請檢查您的信箱"}
+    except Exception as e:
+        # Supabase 對重發信件有頻率限制（Rate Limit），通常是每分鐘一次
+        error_msg = str(e).lower()
+        if "rate limit" in error_msg:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="發送過於頻繁，請稍後再試"
+            )
+        
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"重發失敗: {str(e)}"
         )
 
 @router.post("/login")

@@ -9,4 +9,5 @@ dependencies = [
     "python-dotenv>=1.2.1",
     "supabase>=2.23.2",
     "pydantic-settings>=2.0.0",
+    "slowapi>=0.1.9",
 ]
