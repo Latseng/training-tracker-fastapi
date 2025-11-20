@@ -82,8 +82,8 @@ async def login(request: LoginRequest, response: Response):
             )
         
         # 設定HttpOnly Cookies
-        response.set_cookie("access_token", supabase_response.session.access_token, httponly=True, secure=True, samesite="Lax", max_age=60*60)
-        response.set_cookie("refresh_token", supabase_response.session.refresh_token, httponly=True, secure=True, samesite="Lax", max_age=60*60*24*30)
+        response.set_cookie("access_token", supabase_response.session.access_token, httponly=True, secure=True, samesite="None", max_age=60*60)
+        response.set_cookie("refresh_token", supabase_response.session.refresh_token, httponly=True, secure=True, samesite="None", max_age=60*60*24*30)
 
         # 回傳登入資訊
         return {
