@@ -146,3 +146,15 @@ class ActivityRecordUpdate(BaseModel):
     duration: Optional[str] = Field(None, description="持續時間 (例如: '00:30:00')")
     distance: Optional[Decimal] = Field(None, ge=0, max_digits=6, decimal_places=1, description="距離(km)")
     score: Optional[Decimal] = Field(None, ge=0, max_digits=4, decimal_places=1, description="分數")
+
+class DateRange(BaseModel):
+    """
+    用於處理 'range' 物件中的開始和結束日期。
+    """
+    # date 類型可以確保 Pydantic 自動將 "2025-11-11" 轉換為 date 對象
+    start_date: DateType
+    end_date: DateType
+
+class ChatMessage(BaseModel):
+    message: str = Field(..., example="我想問以下問題")
+    range: Optional[DateRange] = None

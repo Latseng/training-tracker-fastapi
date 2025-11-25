@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import auth, training_sessions, training_activities
+from app.routers import auth, training_sessions, training_activities, ai
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from app.dependencies.limiter import limiter
@@ -36,6 +36,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(auth.router)
 app.include_router(training_sessions.router)
 app.include_router(training_activities.router)
+app.include_router(ai.router)
 
 @app.get("/")
 def root():

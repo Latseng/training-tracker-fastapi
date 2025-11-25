@@ -10,4 +10,5 @@ dependencies = [
     "supabase>=2.23.2",
     "pydantic-settings>=2.0.0",
     "slowapi>=0.1.9",
+    "google-genai>=1.52.0",
 ]
