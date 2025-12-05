@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from google import genai
 from app.dependencies.auth import get_current_user
 from app.database import database
-from app.models import ChatMessage
+from app.model.ai import ChatMessage
 import os
 
 supabase = database.get_supabase()

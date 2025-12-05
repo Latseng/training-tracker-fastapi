@@ -1,6 +1,6 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response
-from app.models import (
+from app.model.training_activities import (
     TrainingActivityWithRecordsCreate,
     TrainingActivityWithRecordsResponse,
     ActivityRecordUpdate

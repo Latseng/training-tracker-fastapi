@@ -1,56 +1,8 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import date as DateType
 from decimal import Decimal
 
-class SignupRequest(BaseModel):
-    username: str
-    email: EmailStr
-    password: str
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-class EmailSchema(BaseModel):
-    email: EmailStr
-
-# ===== Training Session 相關模型 =====
-class TrainingSessionCreate(BaseModel):
-    """建立訓練課程的請求模型"""
-    title: Optional[str] = Field(None, max_length=100, description="課程標題")
-    date: DateType = Field(..., description="訓練日期") # 時間格式只接受 "YYYY-MM-DD"
-    note: Optional[str] = Field(None, description="備註")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "title": "重訓日",
-                "date": "2024-01-15",
-                "note": "今天感覺狀態很好"
-            }
-        }
-
-class TrainingSessionUpdate(BaseModel):
-    """更新訓練課程的請求模型"""
-    title: Optional[str] = Field(None, max_length=100)
-    date: Optional[DateType] = None 
-    note: Optional[str] = None
-
-class TrainingSessionResponse(BaseModel):
-    """訓練課程的回應模型"""
-    id: str
-    user_id: str
-    title: Optional[str]
-    date: str
-    note: Optional[str]
-    created_at: str
-    
-    class Config:
-        from_attributes = True
-
 class ActivityRecordCreate(BaseModel):
-    """建立活動記錄的請求模型"""
     set_number: int = Field(..., ge=1, description="第幾組")
     reps: Optional[int] = Field(None, ge=0, description="次數")
     weight: Optional[Decimal] = Field(None, ge=0, max_digits=5, decimal_places=2, description="重量(kg)")
@@ -78,19 +30,8 @@ class ActivityRecordCreate(BaseModel):
             }
         }
 
-class ActivityRecordResponse(BaseModel):
-    """活動記錄的回應模型"""
-    id: str
-    activity_id: str
-    set_number: int
-    repetition: Optional[int]
-    weight: Optional[float]
-    duration: Optional[str]
-    distance: Optional[float]
-    score: Optional[float]
 
 class TrainingActivityWithRecordsCreate(BaseModel):
-    """建立訓練活動（包含記錄）的請求模型"""
     session_id: str = Field(..., description="訓練課程 ID")
     name: str = Field(..., max_length=100, description="活動名稱")
     category: Optional[str] = Field(None, max_length=50, description="類別")
@@ -114,8 +55,17 @@ class TrainingActivityWithRecordsCreate(BaseModel):
             }
         }
 
+class ActivityRecordResponse(BaseModel):
+    id: str
+    activity_id: str
+    set_number: int
+    repetition: Optional[int]
+    weight: Optional[float]
+    duration: Optional[str]
+    distance: Optional[float]
+    score: Optional[float]
+
 class TrainingActivityWithRecordsResponse(BaseModel):
-    """訓練活動（包含記錄）的回應模型"""
     id: str
     session_id: str
     name: str
@@ -123,21 +73,7 @@ class TrainingActivityWithRecordsResponse(BaseModel):
     description: Optional[str]
     records: list[ActivityRecordResponse]
 
-class TrainingSessionWithActivitiesResponse(BaseModel):
-    """訓練計劃包含訓練項目與訓練紀錄"""
-    id: str
-    user_id: str
-    title: Optional[str]
-    date: str
-    note: Optional[str]
-    activities: list[TrainingActivityWithRecordsResponse]
-    created_at: str
-
 class ActivityRecordUpdate(BaseModel):
-    """
-    用於接收前端單筆 Record 更新的 Pydantic 模型。
-    - id 欄位是必須的，用於定位要更新的 Record。
-    """
     id: str  # 必須提供 Record 的 ID
     activity_id: str  # 必須提供所屬 Activity 的 ID
     set_number: int
@@ -146,15 +82,3 @@ class ActivityRecordUpdate(BaseModel):
     duration: Optional[str] = Field(None, description="持續時間 (例如: '00:30:00')")
     distance: Optional[Decimal] = Field(None, ge=0, max_digits=6, decimal_places=1, description="距離(km)")
     score: Optional[Decimal] = Field(None, ge=0, max_digits=4, decimal_places=1, description="分數")
-
-class DateRange(BaseModel):
-    """
-    用於處理 'range' 物件中的開始和結束日期。
-    """
-    # date 類型可以確保 Pydantic 自動將 "2025-11-11" 轉換為 date 對象
-    start_date: DateType
-    end_date: DateType
-
-class ChatMessage(BaseModel):
-    message: str = Field(..., example="我想問以下問題")
-    range: Optional[DateRange] = None

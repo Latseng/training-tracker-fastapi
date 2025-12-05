@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Request, Response, Depends
-from app.models import (
+from app.model.auth import (
     SignupRequest,
     LoginRequest,
     EmailSchema
