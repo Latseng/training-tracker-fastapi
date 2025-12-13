@@ -11,7 +11,7 @@ from app.dependencies.limiter import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
-supabase = database.get_supabase()
+supabase = database.get_supabase_client()
 
 @router.post("/signup")
 def signup(request: SignupRequest):

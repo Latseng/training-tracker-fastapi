@@ -4,12 +4,15 @@ from app.dependencies.auth import get_current_user
 from app.database import database
 from app.model.ai import ChatMessage
 import os
+from dotenv import load_dotenv 
 
-supabase = database.get_supabase()
+load_dotenv()
+
+supabase = database.get_supabase_admin()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 router = APIRouter(
     prefix="/api/analysis",
@@ -59,7 +62,7 @@ async def gemini_chat(request: ChatMessage, current_user: dict = Depends(get_cur
         若使用者提出與訓練無關的問題，請委婉提醒使用者，你不便回答在你專業領域外的問題。
         """
         
-        response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+        response = gemini_client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
 
         print(response)
 

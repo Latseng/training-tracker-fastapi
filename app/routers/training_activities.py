@@ -14,7 +14,7 @@ router = APIRouter(
     prefix="/api/training-activities",
     tags=["Training Activities"]
 )
-supabase = database.get_supabase()
+supabase = database.get_supabase_admin()
 
 @router.post("", response_model=TrainingActivityWithRecordsResponse, status_code=status.HTTP_201_CREATED)
 async def create_activity_with_records(

@@ -10,7 +10,7 @@ from app.model.training_sessions import (
     TrainingSessionWithActivitiesResponse
 )
 
-supabase = database.get_supabase()
+supabase = database.get_supabase_admin()
 
 router = APIRouter(
     prefix="/api/training-sessions",

@@ -1,7 +1,7 @@
 from fastapi import HTTPException, status, Request
 from app.database import database
 
-supabase = database.get_supabase()
+supabase = database.get_supabase_client()
 
 # 請求身份驗證
 async def get_current_user(request: Request):
