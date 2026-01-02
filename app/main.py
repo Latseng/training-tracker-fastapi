@@ -10,18 +10,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 environment = os.getenv("ENVIRONMENT")
-frontent_url = os.getenv("FRONTEND_URL")
+frontend_url = os.getenv("FRONTEND_URL")
 
 if environment == "Production":
-    ALLOWED_ORIGINS = [frontent_url]
+    ALLOWED_ORIGINS = [frontend_url]
     
-elif environment == "Development":
+else:
     ALLOWED_ORIGINS = [
         "http://localhost:3000", 
-        "http://localhost", 
-        "http://localhost:8000",
-        "http://127.0.0.1",
-        "http://127.0.0.1:8000",
     ]
 
 app = FastAPI()
