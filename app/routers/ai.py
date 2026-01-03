@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from google import genai
 from app.dependencies.auth import get_current_user
 from app.database import database
 from app.model.ai import ChatMessage
+from app.dependencies.limiter import limiter
 import os
 from dotenv import load_dotenv 
 
@@ -19,55 +20,73 @@ router = APIRouter(
     tags=["analysis"]
 )
 
+def format_training_data(sessions: list) -> str:
+    """將訓練數據格式化為精簡文字以節省 Token"""
+    if not sessions:
+        return "無近期訓練紀錄。"
+    
+    formatted_text = "近期訓練紀錄:\n"
+    for session in sessions:
+        date = session.get("date", "Unknown Date")
+        note = session.get("note", "")
+        formatted_text += f"=== 日期: {date} ===\n"
+        if note:
+            formatted_text += f"心得: {note}\n"
+        
+        activities = session.get("activities", [])
+        for act in activities:
+            name = act.get("name", "Unknown")
+            records = act.get("records", [])
+            record_str = ", ".join([f"{r.get('weight')}kgx{r.get('repetition')}" for r in records])
+            formatted_text += f"- {name}: {record_str}\n"
+        formatted_text += "\n"
+    return formatted_text
+
 @router.post("/ai/chat")
-async def gemini_chat(request: ChatMessage, current_user: dict = Depends(get_current_user)):
+@limiter.limit("5/minute") # 限制每分鐘 5 次請求
+async def gemini_chat(request: Request, payload: ChatMessage, current_user: dict = Depends(get_current_user)):
     try:
-        sessions_response = None
-        # 使用者需要依照訓練資料詢問AI
-        if request.range:
+        sessions_data = []
+
+        if payload.range:
             query = supabase.table("training_sessions")\
             .select("date, note, title, activities:training_activities(category, description, name, records:activity_records(repetition, set_number, weight))")\
             .eq("user_id", current_user["id"])
             
-            if request.range.start_date:
-                query = query.gte("date", request.range.start_date.isoformat())
-            if request.range.end_date:
-                query = query.lte("date", request.range.end_date.isoformat())
-            elif request.range.start_date:
-                query = query.lte("date", request.range.start_date.isoformat()) 
-
-            query = query.order("created_at", desc=True)
-            sessions_response = query.execute()
+            # 修正日期查詢邏輯
+            if payload.range.start_date:
+                query = query.gte("date", payload.range.start_date.isoformat())
+            if payload.range.end_date:
+                query = query.lte("date", payload.range.end_date.isoformat())
             
-            if not sessions_response.data:
-                sessions_response.data = []
+            query = query.order("date", desc=True).limit(20)
+            
+            sessions_response = query.execute()
+            if sessions_response.data:
+                sessions_data = sessions_response.data
 
-        # 構建給 Gemini 的 Prompt (提示詞)
-        # 我們將數據轉為字串，讓 AI 當作背景知識
-        if sessions_response is not None:
-            context_str = f"這是使用者的近期訓練紀錄: {sessions_response}"
-        else:
-            # 如果沒有資料，提供一個替代的訊息
-            context_str = "沒有使用者的訓練紀錄。"
+        context_str = format_training_data(sessions_data)
         
         prompt = f"""
         你是一位專業的肌力與體能訓練教練。
-        使用者有可能會附帶一段期間的訓練紀錄給你（從supabase抓取的資料）。
-        如果使用者有提供，請協助使用者評估與分析訓練紀錄。
-        如果沒有，請直接回答使用者的提問。
+        請根據使用者的提問與提供的近期訓練紀錄進行評估與分析。
         
-        使用者問題: {request.message}
-        訓練紀錄: {context_str}
+        使用者問題: {payload.message}
         
-        若使用者提出與訓練無關的問題，請委婉提醒使用者，你不便回答在你專業領域外的問題。
+        {context_str}
+        
+        指示：
+        1. 若有訓練紀錄，請具體引用數據來支持你的建議。
+        2. 若無相關紀錄或問題與訓練無關，請委婉說明。
+        3. 回答請保持簡潔專業，重點在於優化訓練成效。
         """
         
-        response = gemini_client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
-
-        print(response)
+        response = await gemini_client.aio.models.generate_content(
+            model="gemini-2.5-flash", 
+            contents=prompt
+        )
 
         return {"reply": response.text}
 
-    except Exception as e:
-        print(f"Error: {e}")
-        raise HTTPException(status_code=500, detail="AI 處理失敗")
+    except Exception:
+        raise HTTPException(status_code=500)
