@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from google import genai
 from app.dependencies.auth import get_current_user
 from app.database import database
-from app.model.ai import ChatMessage
+from app.models.ai import ChatMessage
 from app.dependencies.limiter import limiter
 import os
 from dotenv import load_dotenv 

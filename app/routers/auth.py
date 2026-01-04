@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Response, Depends
-from app.model.auth import (
+from app.models.auth import (
     SignupRequest,
     LoginRequest,
     EmailSchema

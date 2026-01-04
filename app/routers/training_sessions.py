@@ -3,7 +3,7 @@ from datetime import date
 from app.database import database
 from app.dependencies.auth import get_current_user
 from typing import List
-from app.model.training_sessions import (
+from app.models.training_sessions import (
     TrainingSessionCreate,
     TrainingSessionUpdate,
     TrainingSessionResponse,
