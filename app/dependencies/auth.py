@@ -1,10 +1,14 @@
-from fastapi import HTTPException, status, Request
-from app.database import database
+from fastapi import HTTPException, status, Request, Depends
+from app.services.auth_service import AuthService
 
-supabase = database.get_supabase_client()
+def get_auth_service() -> AuthService:
+    return AuthService()
 
 # 請求身份驗證
-async def get_current_user(request: Request):
+async def get_current_user(
+    request: Request,
+    auth_service: AuthService = Depends(get_auth_service)
+):
     """從 Cookie 取得使用者驗證資訊"""
     access_token = request.cookies.get("access_token")
     if not access_token:
@@ -13,16 +17,4 @@ async def get_current_user(request: Request):
             detail="Not authenticated"
         )
     
-    try:
-        response = supabase.auth.get_user(access_token)
-        if not response.user:
-            raise HTTPException(401, "Invalid or expired token")
-        
-        # 回傳使用者資料
-        return {
-            "id": response.user.id,
-            "email": response.user.email,
-            "username": response.user.user_metadata.get("username")
-        }
-    except Exception:
-        raise HTTPException(401, "Invalid or expired token")
+    return auth_service.get_user_by_token(access_token)
