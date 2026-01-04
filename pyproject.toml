@@ -11,4 +11,5 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "slowapi>=0.1.9",
     "google-genai>=1.52.0",
+    "pytest>=9.0.2",
 ]
