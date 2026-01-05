@@ -1,5 +1,5 @@
 from fastapi import HTTPException, status
-from typing import List, Optional
+from typing import Optional
 from datetime import date
 from supabase import Client
 from app.database import database
